@@ -12,7 +12,7 @@
 <br/>
 
 
-<p align="center">
+<p>
   <b>⚡ Advanced DDoS Attack Tool with Multiple Bypass Capabilities ⚡</b>
 </p>
 
@@ -20,7 +20,6 @@
 
 ## ⚠️ DISCLAIMER ⚠️
 
-<div align="left">
 
 > **🚨 IMPORTANT LEGAL NOTICE**
 > 
@@ -37,8 +36,6 @@
 
 ## 🌟 FEATURES
 
-<div align="center">
-
 | 🛡️ Protection Bypass | ⚡ Attack Methods | 🛠️ Utilities |
 |:---------------------:|:-----------------:|:------------:|
 | Cloudflare UAM | Layer 7 Attacks | DNS Lookup |
@@ -48,21 +45,8 @@
 | BlazingFast | Proxy Support | Network Info |
 | OVH | Custom Headers | Port Scanner |
 
-</div>
 
 ---
-
-## 📸 SCREENSHOTS
-
-### Main Interface
-<p align="center">
-  <img src="https://i.imgur.com/h72OZpu.jpeg" alt="TYPHON Main Interface" width="80%"/>
-</p>
-
-### Attack Example
-<p align="center">
-  <img src="https://i.imgur.com/XJztNu9.png" alt="Attack Example" width="80%"/>
-</p>
 
 ---
 
