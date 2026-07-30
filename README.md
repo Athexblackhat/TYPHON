@@ -6,8 +6,8 @@
 <div align="center">
 
 <img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&weight=700&size=35&duration=3000&pause=1000&color=F70000&center=true&vCenter=true&random=false&width=600&height=70&lines=⚡+TYPHON+DDoS+⚡;🔥+POWERFUL+DDoS+TOOL+🔥;🛡️+MULTI-BYPASS+SYSTEM+🛡️" alt="Typing SVG" />
-
-<p align="center">
+</div>
+<p>
   <img src="https://img.shields.io/badge/Version-1.0.0-red?style=for-the-badge&logo=github&logoColor=white" alt="Version"/>
   <img src="https://img.shields.io/badge/Platform-Linux%20%7C%20Termux-brightgreen?style=for-the-badge&logo=linux&logoColor=white" alt="Platform"/>
   <img src="https://img.shields.io/badge/Language-Python%203.x-blue?style=for-the-badge&logo=python&logoColor=yellow" alt="Language"/>
