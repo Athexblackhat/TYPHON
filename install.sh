@@ -362,7 +362,6 @@ EOF
     echo -e "${PINK}    source athex/bin/activate${RESET}"
     echo -e "${PINK}    python3 main.py${RESET}\n"
     echo -e "${YELLOW}  Method 3 - Using Helper Script:${RESET}"
-    echo -e "${PINK}    ./activate_athex.sh${RESET}"
     echo -e "${PINK}    python3 main.py${RESET}\n"
     
     echo -e "${ORANGE}📌 Important Notes:${RESET}"
@@ -372,7 +371,6 @@ EOF
     
     echo -e "${PINK}$(printf '═%.0s' {1..50})${RESET}"
     echo -e "${ORANGE}  Developed by ATHEX BLACK HAT${RESET}"
-    echo -e "${BLUE}  Telegram: t.me/ServerKillers${RESET}"
     echo -e "${PINK}$(printf '═%.0s' {1..50})${RESET}\n"
 }
 
@@ -380,7 +378,6 @@ EOF
 handle_error() {
     echo -e "${RED}              ❌ INSTALLATION FAILED!              ${RESET}"
     echo -e "${YELLOW}Please check the errors above and try again.${RESET}"
-    echo -e "${CYAN}For support: t.me/ServerKillers${RESET}\n"
     exit 1
 }
 
