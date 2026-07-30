@@ -1,5 +1,10 @@
 <div align="center">
 
+<img src="/typhon_logo.png" alt=" logo " width="500" height="auto">
+
+</div>
+<div align="center">
+
 <img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&weight=700&size=35&duration=3000&pause=1000&color=F70000&center=true&vCenter=true&random=false&width=600&height=70&lines=⚡+TYPHON+DDoS+⚡;🔥+POWERFUL+DDoS+TOOL+🔥;🛡️+MULTI-BYPASS+SYSTEM+🛡️" alt="Typing SVG" />
 
 <p align="center">
