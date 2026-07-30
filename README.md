@@ -18,20 +18,6 @@
 
 ---
 
-## ⚠️ DISCLAIMER ⚠️
-
-
-> **🚨 IMPORTANT LEGAL NOTICE**
-> 
-> - ❌ **DO NOT** attack pakistan Government websites or `.pk` domains.
-> - ❌ **DO NOT** attack any websites you don't own or have explicit permission to test
-> - ⚠️ This tool was created for **EDUCATIONAL PURPOSES ONLY**
-> - ⚠️ All responsibilities and consequences of using this program lie with the **USER**
-> - ⚠️ The developers assume **NO LIABILITY** and are **NOT RESPONSIBLE** for any misuse or damage
-> - 📚 Use this tool only in controlled environments for learning about network security
-
-</div>
-
 ---
 
 ## 🌟 FEATURES
