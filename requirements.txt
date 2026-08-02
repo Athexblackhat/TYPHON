@@ -1,7 +1,7 @@
 requests
 httpx
 cloudscraper
-socks>=1.0.0
+socks
 PySocks>=1.7.1
 urllib3>=2.0.0
 socket>=1.0.0
