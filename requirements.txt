@@ -10,5 +10,5 @@ selenium
 colorama
 dataclasses
 typing-extensions
-aiohttp>=3.9.0
+aiohttp
 asyncio>=3.4.3
