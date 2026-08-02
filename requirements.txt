@@ -11,4 +11,4 @@ colorama
 dataclasses
 typing-extensions
 aiohttp
-asyncio>=3.4.3
+asyncio
