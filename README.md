@@ -42,7 +42,6 @@
 
 ## 🌟 FEATURES
 
-<div align="center">
 
 | 🛡️ Protection Bypass | ⚡ Attack Methods | 🛠️ Utilities |
 |:---------------------:|:-----------------:|:------------:|
@@ -53,7 +52,6 @@
 | BlazingFast | Proxy Support | Network Info |
 | OVH | Custom Headers | Port Scanner |
 
-</div>
 
 ###  FEATURES
 
