@@ -6,7 +6,7 @@ PySocks>=1.7.1
 urllib3>=2.0.0
 socket>=1.0.0
 undetected-chromedriver>=3.5.4
-
+selenium>=4.15.0
 
 
 
