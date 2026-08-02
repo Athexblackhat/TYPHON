@@ -4,7 +4,7 @@ cloudscraper
 socks
 PySocks
 urllib3
-socket>=1.0.0
+socket
 undetected-chromedriver>=3.5.4
 selenium>=4.15.0
 colorama>=0.4.6
