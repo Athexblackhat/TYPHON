@@ -1,5 +1,5 @@
 requests
-httpx>=0.25.0
+httpx
 cloudscraper>=1.2.71
 socks>=1.0.0
 PySocks>=1.7.1
