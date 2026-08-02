@@ -10,6 +10,6 @@ selenium>=4.15.0
 colorama>=0.4.6
 dataclasses>=0.6;
 typing-extensions>=4.5.0
-
+aiohttp>=3.9.0
 
 
