@@ -6,7 +6,7 @@ PySocks
 urllib3
 socket
 undetected-chromedriver
-selenium>=4.15.0
+selenium
 colorama>=0.4.6
 dataclasses>=0.6;
 typing-extensions>=4.5.0
