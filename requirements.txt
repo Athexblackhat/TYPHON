@@ -9,6 +9,6 @@ undetected-chromedriver
 selenium
 colorama
 dataclasses
-typing-extensions>=4.5.0
+typing-extensions
 aiohttp>=3.9.0
 asyncio>=3.4.3
