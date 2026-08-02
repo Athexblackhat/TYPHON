@@ -2,7 +2,7 @@ requests
 httpx
 cloudscraper
 socks
-PySocks>=1.7.1
+PySocks
 urllib3>=2.0.0
 socket>=1.0.0
 undetected-chromedriver>=3.5.4
