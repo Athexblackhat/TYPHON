@@ -1,4 +1,4 @@
-requests>=2.31.0
+requests
 httpx>=0.25.0
 cloudscraper>=1.2.71
 socks>=1.0.0
