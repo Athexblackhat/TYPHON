@@ -1120,7 +1120,7 @@ def title():
 
 ##############################################################################################
 def command():
-    stdout.write(Fore.LIGHTGREEN_EX+"\nroot@void:~#\x1b[38;2;0;255;189m "+Fore.WHITE)
+    stdout.write(Fore.LIGHTGREEN_EX+"\nroot@athex:~#\x1b[38;2;0;255;189m "+Fore.WHITE)
     command = input()
     if command == "cls" or command == "clear":
         clear()
